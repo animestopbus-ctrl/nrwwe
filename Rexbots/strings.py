@@ -64,7 +64,7 @@ COMMANDS_TXT = """<b>📜 All Available Commands</b>
 /start  — Home & quota
 /help  — Detailed guide
 /settings — Customize bot
-/commands — This list
+/commands  — This list
 
 /login  — Connect account
 /logout — Disconnect account
@@ -101,11 +101,3 @@ COMMANDS_TXT = """<b>📜 All Available Commands</b>
 <b>🔥 Premium = Unlimited Everything</b>
 <i>Contact @RexBots_Official to upgrade!</i>
 """
-
-# Dont remove Credits
-# Developer Telegram @about_zani/143
-# Update channel - @RexBots_Official
-
-# Rexbots
-# Don't Remove Credit
-# Telegram Channel @RexBots_Official
