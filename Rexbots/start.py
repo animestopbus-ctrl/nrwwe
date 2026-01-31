@@ -192,6 +192,9 @@ def TimeFormatter(milliseconds: int) -> str:
 class batch_temp(object):
     IS_BATCH = {}
 
+class settings_temp(object):
+    STATE = {}
+
 def get_message_type(msg):
     if getattr(msg, 'document', None): return "Document"
     if getattr(msg, 'video', None): return "Video"
@@ -641,7 +644,7 @@ async def button_callbacks(client: Client, callback_query: CallbackQuery):
             message_id=message.id,
             media=InputMediaPhoto(
                 media=SUBSCRIPTION, 
-                caption=script.PREMIUM_TEXT.format(callback_query.from_user.mention, UPI_ID, QR_CODE)
+                caption=script.PREMIUM_TEXT.format(UPI_ID, QR_CODE)
             ),
             reply_markup=InlineKeyboardMarkup(buttons)
         )
@@ -698,8 +701,83 @@ async def button_callbacks(client: Client, callback_query: CallbackQuery):
         await message.delete()
 
     # --- SETTINGS SUB-MENUS ---
-    elif data in ["cmd_list_btn", "user_stats_btn", "dump_chat_btn", "thumb_btn", "caption_btn"]:
-        # Logic is handled by settings.py, this ensures the spinning icon stops
-        pass
+    elif data == "cmd_list_btn":
+        text = """<b>📜 Command List</b>
+
+- /start: Start the bot
+- /help: Get help
+- /plan: View premium plans
+- /cancel: Cancel current task
+- /login: Login to your Telegram account (for private content)
+- /logout: Logout from your session
+- /batch: Start batch downloading mode"""
+        buttons = [[InlineKeyboardButton("⬅️ Back to Settings", callback_data="settings_btn")]]
+        await client.edit_message_caption(
+            chat_id=message.chat.id,
+            message_id=message.id,
+            caption=text,
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode=enums.ParseMode.HTML
+        )
+
+    elif data == "user_stats_btn":
+        user_id = callback_query.from_user.id
+        is_premium = await db.check_premium(user_id)
+        badge = "💎 Premium" if is_premium else "👤 Free"
+        text = f"""<b>📊 Usage Stats</b>
+
+Account Type: {badge}
+User ID: <code>{user_id}</code>
+
+<i>Detailed stats (daily downloads, total traffic) coming soon.</i>"""
+        buttons = [[InlineKeyboardButton("⬅️ Back to Settings", callback_data="settings_btn")]]
+        await client.edit_message_caption(
+            chat_id=message.chat.id,
+            message_id=message.id,
+            caption=text,
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode=enums.ParseMode.HTML
+        )
+
+    elif data == "dump_chat_btn":
+        text = """<b>🗑 Dump Chat Settings</b>
+
+This feature is under development."""
+        buttons = [[InlineKeyboardButton("⬅️ Back to Settings", callback_data="settings_btn")]]
+        await client.edit_message_caption(
+            chat_id=message.chat.id,
+            message_id=message.id,
+            caption=text,
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode=enums.ParseMode.HTML
+        )
+
+    elif data == "thumb_btn":
+        settings_temp.STATE[callback_query.from_user.id] = "thumb"
+        await callback_query.message.reply("Send me a photo to set as your custom thumbnail.")
+
+    elif data == "caption_btn":
+        settings_temp.STATE[callback_query.from_user.id] = "caption"
+        await callback_query.message.reply("Send me the custom caption text. Use {file_name} and {size} as placeholders.")
 
     await callback_query.answer()
+
+# ==============================================================================
+# 🖼️ THUMBNAIL & CAPTION HANDLERS
+# ==============================================================================
+
+@Client.on_message(filters.photo & filters.private)
+async def set_thumbnail_handler(client: Client, message: Message):
+    if settings_temp.STATE.get(message.from_user.id) == "thumb":
+        await db.set_thumbnail(message.from_user.id, message.photo.file_id)
+        settings_temp.STATE.pop(message.from_user.id, None)
+        await message.reply_text("✅ Custom thumbnail set successfully.")
+    # If not in state, ignore the photo
+
+@Client.on_message(filters.text & filters.private & ~filters.command & ~filters.regex(r"^https?://t\.me/"))
+async def set_caption_handler(client: Client, message: Message):
+    if settings_temp.STATE.get(message.from_user.id) == "caption":
+        await db.set_caption(message.from_user.id, message.text)
+        settings_temp.STATE.pop(message.from_user.id, None)
+        await message.reply_text("✅ Custom caption set successfully.")
+    # If not in state or is a link/command, ignore (handled elsewhere)
